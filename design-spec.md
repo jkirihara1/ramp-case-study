@@ -46,11 +46,6 @@ The core challenge is not technical — it is trust. Accountants who built the c
 - **Bank Reconciliation** ties subledger cash to external bank data — the strongest trust anchor, since it validates against a source accounting doesn't control.
 - **Export History** provides the permanent audit trail that spreadsheets never had. Every GL journal is traceable to the subledger entries and source events that produced it.
 
-**Recommended rollout:**
-1. **Parallel test (1–2 months)** — Accounting produces JEs both ways and compares results. Every difference is investigated and resolved. This is where trust is built and unwritten rules in the manual process are discovered and encoded as handlers.
-2. **Primary with backup (1 month)** — App produces the JE; accounting spot-checks against the old process but doesn't fully rebuild it.
-3. **Full cutover** — App is the primary workflow. Old process is retired.
-
 **Role shift:** With the app, the accountant moves from **data processor** (pulling data, summing columns, typing into NetSuite) to **reviewer and approver** (data prepared for them; their job is to validate, apply judgment to exceptions, and sign off). This is a better use of their expertise — their value is knowing whether the numbers make sense, not in the data wrangling that precedes that judgment.
 
 ---
