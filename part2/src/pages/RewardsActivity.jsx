@@ -274,41 +274,26 @@ export default function RewardsActivity({ selectedPeriod }) {
       {/* ── Entity / Currency breakdown ─────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-1">Net Earnings by Entity</h3>
-        <p className="text-xs text-gray-400 mb-3">Entity derived from currency: USD = Ramp Financial LLC, CAD = Ramp Canada. Reversals proportioned by gross earning share.</p>
+        <p className="text-xs text-gray-400 mb-3">Entity derived from currency (USD = Ramp Financial LLC, CAD = Ramp Canada). Amounts are net of reversals. No cross-currency total — each row is in its own currency.</p>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-200">
               <th className="px-3 py-2 font-medium">Entity</th>
               <th className="px-3 py-2 font-medium">Currency</th>
-              <th className="px-3 py-2 font-medium text-right">Gross Earnings</th>
-              <th className="px-3 py-2 font-medium text-right">Reversals</th>
+              <th className="px-3 py-2 font-medium text-right">Points (net)</th>
               <th className="px-3 py-2 font-medium text-right">Net Earnings</th>
             </tr>
           </thead>
           <tbody>
-            {Object.entries(m.earnings.byCurrency).map(([ccy, data]) => {
-              const pct = data.points / m.earnings.totalPoints;
-              const reversals = Math.round(Math.abs(m.earnings.reversalDollars) * pct * 100) / 100;
-              const net = Math.round((data.dollars - reversals) * 100) / 100;
-              return (
-                <tr key={ccy} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-2 text-gray-700">{ccy === "USD" ? "Ramp Financial LLC" : "Ramp Canada"}</td>
-                  <td className="px-3 py-2 font-mono text-gray-600">{ccy}</td>
-                  <td className="px-3 py-2 text-right font-mono">{fmt(data.dollars)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-red-600">({fmt(reversals)})</td>
-                  <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(net)}</td>
-                </tr>
-              );
-            })}
+            {Object.entries(m.earnings.byCurrency).map(([ccy, data]) => (
+              <tr key={ccy} className="border-t border-gray-100 hover:bg-gray-50">
+                <td className="px-3 py-2 text-gray-700">{ccy === "USD" ? "Ramp Financial LLC" : "Ramp Canada"}</td>
+                <td className="px-3 py-2 font-mono text-gray-600">{ccy}</td>
+                <td className="px-3 py-2 text-right font-mono">{fmtPts(data.points)}</td>
+                <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(data.dollars)}</td>
+              </tr>
+            ))}
           </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-gray-300 font-semibold">
-              <td className="px-3 py-2" colSpan={2}>Total</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(m.earnings.totalDollars)}</td>
-              <td className="px-3 py-2 text-right font-mono text-red-600">({fmt(Math.abs(m.earnings.reversalDollars))})</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(m.earnings.netDollars)}</td>
-            </tr>
-          </tfoot>
         </table>
         <p className="text-xs text-gray-400 mt-2">
           Note: Redemption sample data is USD-only. Canadian redemptions would follow the same handler logic in CAD.
