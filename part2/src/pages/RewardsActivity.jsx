@@ -6,19 +6,28 @@ const fmt = (v) => new Intl.NumberFormat("en-US", { style: "currency", currency:
 const fmtPts = (v) => new Intl.NumberFormat("en-US").format(Math.round(v));
 const periods = ["2025-01", "2025-02", "2025-03"];
 
-// ── Build account-level summary from monthly activity ────────────────────────
+// ── Build account-level summary from monthly activity — split by entity ──────
 function buildAccountSummary(m) {
   const sc = m.redemptions.byChannel.STATEMENT_CREDIT;
   const pa = m.redemptions.byChannel.PROVIDER_A;
   const pb = m.redemptions.byChannel.PROVIDER_B;
+  const usdNet = m.earnings.byCurrency.USD.dollars;
+  const cadNet = m.earnings.byCurrency.CAD.dollars;
 
-  return [
-    { glAccount: 10100, glName: "Cash — Statement Credits", debit: 0, credit: sc.cashPaid, source: "SC Redemptions" },
-    { glAccount: 10100, glName: "Cash — Provider A Payouts", debit: 0, credit: pa.cashPaid, source: "PA Redemptions" },
-    { glAccount: 10100, glName: "Cash — Provider B Payouts", debit: 0, credit: pb.cashPaid, source: "PB Redemptions" },
-    { glAccount: 22001, glName: "Rewards Liability", debit: sc.faceValue + pa.faceValue + pb.faceValue, credit: m.earnings.netDollars, source: "Multiple" },
-    { glAccount: 60201, glName: "Rewards Expense", debit: m.earnings.netDollars, credit: pa.gain + pb.gain, source: "Multiple" },
+  const usd = [
+    { glAccount: 10100, glName: "Cash — Statement Credits", debit: 0, credit: sc.cashPaid },
+    { glAccount: 10100, glName: "Cash — Provider A Payouts", debit: 0, credit: pa.cashPaid },
+    { glAccount: 10100, glName: "Cash — Provider B Payouts", debit: 0, credit: pb.cashPaid },
+    { glAccount: 22001, glName: "Rewards Liability", debit: sc.faceValue + pa.faceValue + pb.faceValue, credit: usdNet },
+    { glAccount: 60201, glName: "Rewards Expense", debit: usdNet, credit: pa.gain + pb.gain },
   ].sort((a, b) => a.glAccount - b.glAccount);
+
+  const cad = [
+    { glAccount: 22001, glName: "Rewards Liability", debit: 0, credit: cadNet },
+    { glAccount: 60201, glName: "Rewards Expense", debit: cadNet, credit: 0 },
+  ].sort((a, b) => a.glAccount - b.glAccount);
+
+  return { usd, cad };
 }
 
 // ── Build activity summary by event type ─────────────────────────────────────
@@ -91,13 +100,17 @@ export default function RewardsActivity({ selectedPeriod }) {
   const m = monthlyActivity[selectedPeriod];
   if (!m) return <div className="text-gray-500 p-8">No data for this period.</div>;
 
-  const accountSummary = buildAccountSummary(m);
+  const { usd: usdSummary, cad: cadSummary } = buildAccountSummary(m);
   const eventSummary = buildEventTypeSummary(m);
   const fluxData = computeFlux(selectedPeriod);
 
-  const totalDR = accountSummary.reduce((s, r) => s + r.debit, 0);
-  const totalCR = accountSummary.reduce((s, r) => s + r.credit, 0);
-  const balanced = Math.abs(totalDR - totalCR) < 0.01;
+  const usdDR = usdSummary.reduce((s, r) => s + r.debit, 0);
+  const usdCR = usdSummary.reduce((s, r) => s + r.credit, 0);
+  const cadDR = cadSummary.reduce((s, r) => s + r.debit, 0);
+  const cadCR = cadSummary.reduce((s, r) => s + r.credit, 0);
+  const usdBalanced = Math.abs(usdDR - usdCR) < 0.01;
+  const cadBalanced = Math.abs(cadDR - cadCR) < 0.01;
+  const balanced = usdBalanced && cadBalanced;
 
   const openExceptions = m.exceptions.filter((e) => e.status === "Open" || e.status === "Under Review");
   const sc = m.redemptions.byChannel.STATEMENT_CREDIT;
@@ -108,9 +121,11 @@ export default function RewardsActivity({ selectedPeriod }) {
   const validations = [
     {
       label: "Balance",
-      desc: "Total DR = Total CR across all subledger entries",
+      desc: "Total DR = Total CR per entity",
       status: balanced ? "pass" : "fail",
-      detail: balanced ? `Balanced at ${fmt(totalDR)}` : `DR ${fmt(totalDR)} ≠ CR ${fmt(totalCR)}`,
+      detail: balanced
+        ? `USD balanced at ${fmt(usdDR)} · CAD balanced at ${fmt(cadDR)}`
+        : `${!usdBalanced ? `USD: DR ${fmt(usdDR)} ≠ CR ${fmt(usdCR)}` : ""}${!cadBalanced ? ` CAD: DR ${fmt(cadDR)} ≠ CR ${fmt(cadCR)}` : ""}`,
     },
     (() => {
       const exceptions = m.exceptions.filter((e) => e.type === "Earn Rate Deviation");
@@ -205,12 +220,12 @@ export default function RewardsActivity({ selectedPeriod }) {
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 font-medium">Net Subledger Activity</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{fmt(totalDR)}</p>
-          <p className="text-xs mt-0.5">
-            {balanced
-              ? <span className="text-green-600 font-medium">Balanced</span>
-              : <span className="text-red-600 font-medium">Imbalanced — {fmt(Math.abs(totalDR - totalCR))}</span>}
+          <p className="text-xs text-gray-500 font-medium">Subledger Balance</p>
+          <p className="text-xl font-bold mt-1">
+            {balanced ? <span className="text-green-700">Balanced</span> : <span className="text-red-600">Imbalanced</span>}
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            USD {usdBalanced ? "✓" : "✗"} · CAD {cadBalanced ? "✓" : "✗"}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -230,41 +245,51 @@ export default function RewardsActivity({ selectedPeriod }) {
       {/* ── Account-level summary ─────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Subledger Entries by GL Account</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-200">
-              <th className="px-3 py-2 font-medium">GL Account</th>
-              <th className="px-3 py-2 font-medium">Account Name</th>
-              <th className="px-3 py-2 font-medium text-right">Debit</th>
-              <th className="px-3 py-2 font-medium text-right">Credit</th>
-              <th className="px-3 py-2 font-medium text-right">Net</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accountSummary.map((row, i) => {
-              const net = row.debit - row.credit;
-              return (
-                <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-2 font-mono text-gray-900">{row.glAccount}</td>
-                  <td className="px-3 py-2 text-gray-700">{row.glName}</td>
-                  <td className="px-3 py-2 text-right font-mono">{row.debit > 0 ? fmt(row.debit) : "—"}</td>
-                  <td className="px-3 py-2 text-right font-mono">{row.credit > 0 ? fmt(row.credit) : "—"}</td>
-                  <td className={`px-3 py-2 text-right font-mono ${net > 0 ? "text-gray-900" : "text-red-700"}`}>
-                    {fmt(net)}
+        {[
+          { label: "Ramp Financial LLC — USD", rows: usdSummary, dr: usdDR, cr: usdCR, bal: usdBalanced },
+          { label: "Ramp Canada — CAD", rows: cadSummary, dr: cadDR, cr: cadCR, bal: cadBalanced },
+        ].map(({ label, rows, dr, cr, bal }) => (
+          <div key={label} className="mb-4 last:mb-0">
+            <div className="bg-indigo-50 px-3 py-1.5 rounded-t text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+              {label}
+            </div>
+            <table className="w-full text-sm border border-t-0 border-gray-200 rounded-b overflow-hidden">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <th className="px-3 py-2 font-medium">GL Account</th>
+                  <th className="px-3 py-2 font-medium">Account Name</th>
+                  <th className="px-3 py-2 font-medium text-right">Debit</th>
+                  <th className="px-3 py-2 font-medium text-right">Credit</th>
+                  <th className="px-3 py-2 font-medium text-right">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => {
+                  const net = row.debit - row.credit;
+                  return (
+                    <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2 font-mono text-gray-900">{row.glAccount}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.glName}</td>
+                      <td className="px-3 py-2 text-right font-mono">{row.debit > 0 ? fmt(row.debit) : "—"}</td>
+                      <td className="px-3 py-2 text-right font-mono">{row.credit > 0 ? fmt(row.credit) : "—"}</td>
+                      <td className={`px-3 py-2 text-right font-mono ${net > 0 ? "text-gray-900" : "text-red-700"}`}>{fmt(net)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-300 font-semibold bg-gray-50">
+                  <td className="px-3 py-2" colSpan={2}>Total</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(dr)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(cr)}</td>
+                  <td className={`px-3 py-2 text-right font-mono text-xs font-semibold ${bal ? "text-green-700" : "text-red-600"}`}>
+                    {bal ? "Balanced" : `Variance ${fmt(Math.abs(dr - cr))}`}
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-gray-300 font-semibold">
-              <td className="px-3 py-2" colSpan={2}>Total</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(totalDR)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(totalCR)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(totalDR - totalCR)}</td>
-            </tr>
-          </tfoot>
-        </table>
+              </tfoot>
+            </table>
+          </div>
+        ))}
         <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
           <ArrowRight size={12} />
           These account totals flow directly into the proposed JE on Page 5
