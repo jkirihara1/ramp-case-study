@@ -30,20 +30,6 @@ function buildAccountSummary(m) {
   return { usd, cad };
 }
 
-// ── Build activity summary by event type ─────────────────────────────────────
-function buildEventTypeSummary(m) {
-  const sc = m.redemptions.byChannel.STATEMENT_CREDIT;
-  const pa = m.redemptions.byChannel.PROVIDER_A;
-  const pb = m.redemptions.byChannel.PROVIDER_B;
-
-  return [
-    { type: "Rewards Earning", count: m.earnings.transactionCount, points: m.earnings.totalPoints, dollars: m.earnings.totalDollars, direction: "Earned" },
-    { type: "Earning Reversal", count: m.earnings.reversalCount, points: Math.abs(m.earnings.reversalPoints), dollars: Math.abs(m.earnings.reversalDollars), direction: "Reversed" },
-    { type: "Redemption — Statement Credit", count: sc.count, points: sc.points, dollars: sc.faceValue, direction: "Redeemed" },
-    { type: "Redemption — Provider A", count: pa.count, points: pa.points, dollars: pa.faceValue, direction: "Redeemed" },
-    { type: "Redemption — Provider B", count: pb.count, points: pb.points, dollars: pb.faceValue, direction: "Redeemed" },
-  ];
-}
 
 // ── Flux analysis (period-over-period by account) ────────────────────────────
 function computeFlux(selectedPeriod) {
@@ -103,7 +89,6 @@ export default function RewardsActivity({ selectedPeriod }) {
   if (!m) return <div className="text-gray-500 p-8">No data for this period.</div>;
 
   const { usd: usdSummary, cad: cadSummary } = buildAccountSummary(m);
-  const eventSummary = buildEventTypeSummary(m);
   const fluxData = computeFlux(selectedPeriod);
 
   const usdDR = usdSummary.reduce((s, r) => s + r.debit, 0);
@@ -296,101 +281,6 @@ export default function RewardsActivity({ selectedPeriod }) {
           <ArrowRight size={12} />
           These account totals flow directly into the proposed JE on Page 5
         </p>
-      </div>
-
-      {/* ── Entity / Currency breakdown ─────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">Net Earnings by Entity</h3>
-        <p className="text-xs text-gray-400 mb-3">Entity derived from currency (USD = Ramp Financial LLC, CAD = Ramp Canada). Amounts are net of reversals. No cross-currency total — each row is in its own currency.</p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-200">
-              <th className="px-3 py-2 font-medium">Entity</th>
-              <th className="px-3 py-2 font-medium">Currency</th>
-              <th className="px-3 py-2 font-medium text-right">Points (net)</th>
-              <th className="px-3 py-2 font-medium text-right">Net Earnings</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(m.earnings.byCurrency).map(([ccy, data]) => (
-              <tr key={ccy} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-3 py-2 text-gray-700">{ccy === "USD" ? "Ramp Financial LLC" : "Ramp Canada"}</td>
-                <td className="px-3 py-2 font-mono text-gray-600">{ccy}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtPts(data.points)}</td>
-                <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(data.dollars)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="text-xs text-gray-400 mt-2">
-          Note: Redemption sample data is USD-only. Canadian redemptions would follow the same handler logic in CAD.
-        </p>
-      </div>
-
-      {/* ── Activity summary by event type ────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Activity by Event Type</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-200">
-              <th className="px-3 py-2 font-medium w-8"></th>
-              <th className="px-3 py-2 font-medium">Event Type</th>
-              <th className="px-3 py-2 font-medium text-right">Count</th>
-              <th className="px-3 py-2 font-medium text-right">Points</th>
-              <th className="px-3 py-2 font-medium text-right">$ Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Earnings */}
-            <tr className="border-t border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-2"></td>
-              <td className="px-3 py-2 text-gray-700">Rewards Earning</td>
-              <td className="px-3 py-2 text-right text-gray-600">{m.earnings.transactionCount.toLocaleString()}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtPts(m.earnings.totalPoints)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(m.earnings.totalDollars)}</td>
-            </tr>
-            {/* Reversals */}
-            <tr className="border-t border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-2 text-red-600 font-bold">−</td>
-              <td className="px-3 py-2 text-gray-700">Earning Reversal</td>
-              <td className="px-3 py-2 text-right text-gray-600">{m.earnings.reversalCount.toLocaleString()}</td>
-              <td className="px-3 py-2 text-right font-mono text-red-600">({fmtPts(Math.abs(m.earnings.reversalPoints))})</td>
-              <td className="px-3 py-2 text-right font-mono text-red-600">({fmt(Math.abs(m.earnings.reversalDollars))})</td>
-            </tr>
-            {/* Net Earnings subtotal */}
-            <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-              <td className="px-3 py-2 text-gray-600">=</td>
-              <td className="px-3 py-2 text-gray-900">Net Earnings</td>
-              <td className="px-3 py-2"></td>
-              <td className="px-3 py-2 text-right font-mono">{fmtPts(m.earnings.netPoints)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmt(m.earnings.netDollars)}</td>
-            </tr>
-            {/* Spacer */}
-            <tr><td colSpan={5} className="py-1"></td></tr>
-            {/* Redemptions */}
-            {[
-              { label: "Redemption — Statement Credit", data: m.redemptions.byChannel.STATEMENT_CREDIT },
-              { label: "Redemption — Provider A", data: m.redemptions.byChannel.PROVIDER_A },
-              { label: "Redemption — Provider B", data: m.redemptions.byChannel.PROVIDER_B },
-            ].map(({ label, data }) => (
-              <tr key={label} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-3 py-2 text-red-600 font-bold">−</td>
-                <td className="px-3 py-2 text-gray-700">{label}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{data.count.toLocaleString()}</td>
-                <td className="px-3 py-2 text-right font-mono text-red-600">({fmtPts(data.points)})</td>
-                <td className="px-3 py-2 text-right font-mono text-red-600">({fmt(data.faceValue)})</td>
-              </tr>
-            ))}
-            {/* Total Redemptions */}
-            <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-              <td className="px-3 py-2 text-gray-600">=</td>
-              <td className="px-3 py-2 text-gray-900">Total Redemptions</td>
-              <td className="px-3 py-2 text-right">{m.redemptions.totalCount}</td>
-              <td className="px-3 py-2 text-right font-mono text-red-600">({fmtPts(m.redemptions.totalPoints)})</td>
-              <td className="px-3 py-2 text-right font-mono text-red-600">({fmt(m.redemptions.totalFaceValue)})</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
 
       {/* ── Redemption detail by channel ──────────────────────────────────────── */}
