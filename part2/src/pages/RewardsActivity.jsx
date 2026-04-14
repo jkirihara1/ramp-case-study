@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, AlertTriangle, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { CheckCircle, AlertTriangle, ChevronDown, ArrowRight } from "lucide-react";
 import { monthlyActivity, earnRateConfig, rollforward, BREAKAGE_RATE } from "../data/seedData";
 
 const fmt = (v) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
@@ -31,65 +31,16 @@ function buildAccountSummary(m) {
 }
 
 
-// ── Flux analysis (period-over-period by account) ────────────────────────────
-function computeFlux(selectedPeriod) {
-  const idx = periods.indexOf(selectedPeriod);
-  if (idx <= 0) return [];
-
-  const { usd: cu, cad: cc } = buildAccountSummary(monthlyActivity[selectedPeriod]);
-  const { usd: pu, cad: pc } = buildAccountSummary(monthlyActivity[periods[idx - 1]]);
-  const current = [...cu, ...cc];
-  const prior = [...pu, ...pc];
-
-  // Aggregate by glAccount + glName
-  const aggregate = (rows) => {
-    const map = {};
-    for (const r of rows) {
-      const key = `${r.glAccount}-${r.glName}`;
-      if (!map[key]) map[key] = { glAccount: r.glAccount, glName: r.glName, debit: 0, credit: 0 };
-      map[key].debit += r.debit;
-      map[key].credit += r.credit;
-    }
-    return map;
-  };
-
-  const currMap = aggregate(current);
-  const priorMap = aggregate(prior);
-  const allKeys = new Set([...Object.keys(currMap), ...Object.keys(priorMap)]);
-
-  const fluxRows = [];
-  for (const key of allKeys) {
-    const curr = currMap[key] || { glAccount: 0, glName: key, debit: 0, credit: 0 };
-    const pri = priorMap[key] || { debit: 0, credit: 0 };
-    const currNet = curr.debit - curr.credit;
-    const priorNet = pri.debit - pri.credit;
-    const change = currNet - priorNet;
-    const pctChange = priorNet !== 0 ? (change / Math.abs(priorNet)) * 100 : currNet !== 0 ? 100 : 0;
-
-    fluxRows.push({
-      glAccount: curr.glAccount || priorMap[key]?.glAccount,
-      glName: curr.glName,
-      current: currNet,
-      prior: priorNet,
-      change,
-      pctChange,
-      significant: Math.abs(pctChange) > 15,
-    });
-  }
-  return fluxRows.sort((a, b) => a.glAccount - b.glAccount);
-}
 
 export default function RewardsActivity({ selectedPeriod }) {
   const [filterEventType, setFilterEventType] = useState("All");
   const [filterCurrency, setFilterCurrency] = useState("All");
   const [validationsOpen, setValidationsOpen] = useState(true);
-  const [fluxOpen, setFluxOpen] = useState(false);
 
   const m = monthlyActivity[selectedPeriod];
   if (!m) return <div className="text-gray-500 p-8">No data for this period.</div>;
 
   const { usd: usdSummary, cad: cadSummary } = buildAccountSummary(m);
-  const fluxData = computeFlux(selectedPeriod);
 
   const usdDR = usdSummary.reduce((s, r) => s + r.debit, 0);
   const usdCR = usdSummary.reduce((s, r) => s + r.credit, 0);
@@ -167,19 +118,6 @@ export default function RewardsActivity({ selectedPeriod }) {
         detail: missing.length > 0
           ? `${missing.length} business(es) without config: ${missing.join(", ")}`
           : `All ${bizWithEarnings.size} businesses have active earn rate configuration`,
-      };
-    })(),
-    (() => {
-      const sigCount = fluxData.filter((f) => f.significant).length;
-      return {
-        label: "Flux Analysis",
-        desc: "Period-over-period movements >15%",
-        status: fluxData.length === 0 ? "pass" : sigCount === 0 ? "pass" : "warning",
-        detail: fluxData.length === 0
-          ? "No prior period available for comparison"
-          : sigCount === 0
-            ? "No significant variances"
-            : `${sigCount} account${sigCount !== 1 ? "s" : ""} with significant movement`,
       };
     })(),
   ];
@@ -325,56 +263,6 @@ export default function RewardsActivity({ selectedPeriod }) {
           </tfoot>
         </table>
       </div>
-
-      {/* ── Flux analysis ─────────────────────────────────────────────────────── */}
-      {fluxData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <button
-            onClick={() => setFluxOpen(!fluxOpen)}
-            className="flex items-center gap-2 w-full text-left"
-          >
-            {fluxOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <h3 className="text-sm font-semibold text-gray-700">Flux Analysis — Period over Period</h3>
-            <span className="ml-auto text-xs text-gray-400">
-              {fluxData.filter((f) => f.significant).length > 0
-                ? `${fluxData.filter((f) => f.significant).length} significant variance${fluxData.filter((f) => f.significant).length !== 1 ? "s" : ""}`
-                : "No significant variances"}
-            </span>
-          </button>
-          {fluxOpen && (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-500 border-b border-gray-200">
-                    <th className="px-3 py-2 font-medium">GL</th>
-                    <th className="px-3 py-2 font-medium">Account</th>
-                    <th className="px-3 py-2 font-medium text-right">Current</th>
-                    <th className="px-3 py-2 font-medium text-right">Prior</th>
-                    <th className="px-3 py-2 font-medium text-right">Change</th>
-                    <th className="px-3 py-2 font-medium text-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fluxData.map((row, i) => (
-                    <tr key={i} className={`border-t border-gray-100 ${row.significant ? "bg-amber-50" : ""}`}>
-                      <td className="px-3 py-2 font-mono text-gray-900">{row.glAccount}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.glName}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(row.current)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(row.prior)}</td>
-                      <td className={`px-3 py-2 text-right font-mono ${row.change > 0 ? "text-red-700" : row.change < 0 ? "text-green-700" : ""}`}>
-                        {fmt(row.change)}
-                      </td>
-                      <td className={`px-3 py-2 text-right font-mono ${row.significant ? "font-semibold text-amber-700" : ""}`}>
-                        {row.pctChange.toFixed(1)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Exceptions ────────────────────────────────────────────────────────── */}
       {m.exceptions.length > 0 && (
