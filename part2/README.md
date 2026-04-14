@@ -14,7 +14,11 @@ Interactive design document and 3-month simulation (Jan–Mar 2025) for replacin
 
 ### Running Locally
 
+Requires Node.js 18+.
+
 ```bash
+git clone https://github.com/jkirihara1/ramp-case-study.git
+cd ramp-case-study/part2
 npm install && npm run dev   # → http://localhost:5174
 ```
 

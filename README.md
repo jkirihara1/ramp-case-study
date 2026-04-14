@@ -15,12 +15,17 @@ Subledger accounting design and prototype submission.
 
 ## Running Locally
 
+Requires Node.js 18+.
+
 ```bash
+git clone https://github.com/jkirihara1/ramp-case-study.git
+cd ramp-case-study
+
 # Part 1
 cd part1 && npm install && npm run dev   # → http://localhost:5173
 
 # Part 2
-cd part2 && npm install && npm run dev   # → http://localhost:5174
+cd ../part2 && npm install && npm run dev   # → http://localhost:5174
 ```
 
 ## Stack

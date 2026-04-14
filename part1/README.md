@@ -15,7 +15,11 @@ Accountant-facing workspace for subledger monitoring and month-end close. Covers
 
 ### Running Locally
 
+Requires Node.js 18+.
+
 ```bash
+git clone https://github.com/jkirihara1/ramp-case-study.git
+cd ramp-case-study/part1
 npm install && npm run dev   # → http://localhost:5173
 ```
 
