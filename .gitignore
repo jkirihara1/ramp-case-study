@@ -1,0 +1,9 @@
+# Sample data provided by Ramp — not for publication
+Sample Data/
+
+# Notes file — content integrated into design-spec.md
+part1-notes.md
+
+# OS
+.DS_Store
+Thumbs.db
