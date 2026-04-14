@@ -6,8 +6,8 @@ Subledger accounting design and prototype submission.
 
 | | App | Description |
 |---|---|---|
-| **Part 1** | [Subledger Close Workspace](https://PLACEHOLDER-PART1.vercel.app) | Accountant workspace for subledger monitoring and month-end close — card activity, exceptions, bank reconciliation, JE export |
-| **Part 2** | [Rewards Onboarding](https://PLACEHOLDER-PART2.vercel.app) | Event-driven accounting design for the rewards subledger — handler rules, 3-month simulation, breakage reserve, JE preview |
+| **Part 1** | [Subledger Close Workspace](https://part1-teal.vercel.app) | Accountant workspace for subledger monitoring and month-end close — card activity, exceptions, bank reconciliation, JE export |
+| **Part 2** | [Rewards Onboarding](https://part2-three.vercel.app) | Event-driven accounting design for the rewards subledger — handler rules, 3-month simulation, breakage reserve, JE preview |
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 Accountant-facing workspace for subledger monitoring and month-end close. Covers employee spend / card activity — card transactions, reimbursements, statement payments, and refunds across US and Canadian entities.
 
-**[Live app →](https://PLACEHOLDER-PART1.vercel.app)**
+**[Live app →](https://part1-teal.vercel.app)**
 
 ### Pages
 

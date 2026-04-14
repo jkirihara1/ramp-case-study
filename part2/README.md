@@ -2,7 +2,7 @@
 
 Interactive design document and 3-month simulation (Jan–Mar 2025) for replacing the current 56-line manual rewards JE with an event-driven subledger. Covers earning, redemption (3 channels), breakage reserve, and per-entity JE generation.
 
-**[Live app →](https://PLACEHOLDER-PART2.vercel.app)**
+**[Live app →](https://part2-three.vercel.app)**
 
 ### Pages
 
