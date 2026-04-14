@@ -50,8 +50,10 @@ function computeFlux(selectedPeriod) {
   const idx = periods.indexOf(selectedPeriod);
   if (idx <= 0) return [];
 
-  const current = buildAccountSummary(monthlyActivity[selectedPeriod]);
-  const prior = buildAccountSummary(monthlyActivity[periods[idx - 1]]);
+  const { usd: cu, cad: cc } = buildAccountSummary(monthlyActivity[selectedPeriod]);
+  const { usd: pu, cad: pc } = buildAccountSummary(monthlyActivity[periods[idx - 1]]);
+  const current = [...cu, ...cc];
+  const prior = [...pu, ...pc];
 
   // Aggregate by glAccount + glName
   const aggregate = (rows) => {
