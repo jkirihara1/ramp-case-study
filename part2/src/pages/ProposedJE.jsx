@@ -90,15 +90,25 @@ export default function ProposedJE({ selectedPeriod }) {
   const usJE = jes["Ramp Financial LLC"];
   const caJE = jes["Ramp Canada"];
 
-  // Combined totals for reconciliation
-  const allLines = [...usJE.lines, ...caJE.lines];
-  const totalDR = allLines.reduce((s, l) => s + l.debit, 0);
-  const totalCR = allLines.reduce((s, l) => s + l.credit, 0);
-  const balanced = Math.abs(totalDR - totalCR) < 0.01;
+  // Balance check per entity (different currencies — never combine)
+  const usBalanced = Math.abs(usJE.lines.reduce((s, l) => s + l.debit, 0) - usJE.lines.reduce((s, l) => s + l.credit, 0)) < 0.01;
+  const caBalanced = Math.abs(caJE.lines.reduce((s, l) => s + l.debit, 0) - caJE.lines.reduce((s, l) => s + l.credit, 0)) < 0.01;
+  const allBalanced = usBalanced && caBalanced;
 
   const sc = m.redemptions.byChannel.STATEMENT_CREDIT;
   const pa = m.redemptions.byChannel.PROVIDER_A;
   const pb = m.redemptions.byChannel.PROVIDER_B;
+
+  // Per-entity source amounts
+  const usdNet = m.earnings.byCurrency.USD.dollars;
+  const cadNet = m.earnings.byCurrency.CAD.dollars;
+
+  // JE line lookups
+  const usEarnDebit = usJE.lines.filter((l) => l.glAccount === 60201 && l.description.includes("earned")).reduce((s, l) => s + l.debit, 0);
+  const gainCredit = usJE.lines.filter((l) => l.description.includes("redemption gain")).reduce((s, l) => s + l.credit, 0);
+  const caEarnDebit = caJE.lines.filter((l) => l.glAccount === 60201 && l.description.includes("earned")).reduce((s, l) => s + l.debit, 0);
+
+  const match = (a, b) => Math.abs(a - b) < 0.01;
 
   return (
     <div className="space-y-6">
@@ -113,9 +123,9 @@ export default function ProposedJE({ selectedPeriod }) {
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Source-to-JE Reconciliation</h3>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${balanced ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${allBalanced ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             <CheckCircle size={16} />
-            {balanced ? "All JEs Balanced" : "JE NOT Balanced"}
+            {allBalanced ? "All JEs Balanced" : "JE NOT Balanced"}
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -131,56 +141,52 @@ export default function ProposedJE({ selectedPeriod }) {
               </tr>
             </thead>
             <tbody>
-              {/* Net earnings → Rewards Expense + Rewards Liability */}
+              {/* ── Ramp Financial LLC (USD) ───────────────────────────────── */}
+              <tr className="bg-indigo-50">
+                <td colSpan={6} className="px-3 py-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                  Ramp Financial LLC — USD
+                </td>
+              </tr>
               <tr className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-700">Net earnings <span className="text-xs text-gray-400">(Page 3)</span></td>
-                <td className="px-3 py-2 font-mono">{fmt(m.earnings.netDollars)}</td>
+                <td className="px-3 py-2 font-mono">{fmt(usdNet)}</td>
                 <td className="px-3 py-2 text-gray-400">→</td>
                 <td className="px-3 py-2 text-gray-600">60201 Rewards Expense (DR) / 22001 Rewards Liability (CR)</td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {fmt(allLines.filter((l) => l.glAccount === 60201 && l.description.includes("earned")).reduce((s, l) => s + l.debit, 0))}
-                </td>
-                <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+                <td className="px-3 py-2 text-right font-mono">{fmt(usEarnDebit)}</td>
+                <td className="px-3 py-2 text-center">{match(usdNet, usEarnDebit) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
-              {/* Statement credit redemptions */}
               <tr className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-700">Statement credits <span className="text-xs text-gray-400">(Page 3)</span></td>
                 <td className="px-3 py-2 font-mono">{fmt(sc.faceValue)}</td>
                 <td className="px-3 py-2 text-gray-400">→</td>
                 <td className="px-3 py-2 text-gray-600">22001 Rewards Liability (DR) / 10100 Cash (CR)</td>
                 <td className="px-3 py-2 text-right font-mono">{fmt(sc.cashPaid)}</td>
-                <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+                <td className="px-3 py-2 text-center">{match(sc.faceValue, sc.cashPaid) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
-              {/* Provider A */}
               <tr className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-700">Provider A redemptions <span className="text-xs text-gray-400">(Page 3)</span></td>
                 <td className="px-3 py-2 font-mono">{fmt(pa.faceValue)}</td>
                 <td className="px-3 py-2 text-gray-400">→</td>
                 <td className="px-3 py-2 text-gray-600">22001 (DR) / 10100 Cash {fmt(pa.cashPaid)} + 60201 Gain {fmt(pa.gain)}</td>
                 <td className="px-3 py-2 text-right font-mono">{fmt(pa.cashPaid + pa.gain)}</td>
-                <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+                <td className="px-3 py-2 text-center">{match(pa.faceValue, pa.cashPaid + pa.gain) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
-              {/* Provider B */}
               <tr className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-700">Provider B redemptions <span className="text-xs text-gray-400">(Page 3)</span></td>
                 <td className="px-3 py-2 font-mono">{fmt(pb.faceValue)}</td>
                 <td className="px-3 py-2 text-gray-400">→</td>
                 <td className="px-3 py-2 text-gray-600">22001 (DR) / 10100 Cash {fmt(pb.cashPaid)} + 60201 Gain {fmt(pb.gain)}</td>
                 <td className="px-3 py-2 text-right font-mono">{fmt(pb.cashPaid + pb.gain)}</td>
-                <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+                <td className="px-3 py-2 text-center">{match(pb.faceValue, pb.cashPaid + pb.gain) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
-              {/* Redemption gain total */}
               <tr className="border-t border-gray-200 bg-gray-50">
                 <td className="px-3 py-2 text-gray-700 font-medium">Total redemption gain <span className="text-xs text-gray-400">(Page 3)</span></td>
                 <td className="px-3 py-2 font-mono text-green-700">{fmt(m.redemptions.totalGain)}</td>
                 <td className="px-3 py-2 text-gray-400">→</td>
                 <td className="px-3 py-2 text-gray-600">60201 Rewards Expense — Redemption Gain (CR total)</td>
-                <td className="px-3 py-2 text-right font-mono text-green-700">
-                  {fmt(allLines.filter((l) => l.description.includes("redemption gain")).reduce((s, l) => s + l.credit, 0))}
-                </td>
-                <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+                <td className="px-3 py-2 text-right font-mono text-green-700">{fmt(gainCredit)}</td>
+                <td className="px-3 py-2 text-center">{match(m.redemptions.totalGain, gainCredit) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
-              {/* Breakage */}
               <tr className="border-t border-gray-100">
                 <td className="px-3 py-2 text-gray-700">Breakage true-up <span className="text-xs text-gray-400">(Page 4)</span></td>
                 <td className="px-3 py-2 font-mono">{fmt(br.trueUpDollars)}</td>
@@ -188,6 +194,21 @@ export default function ProposedJE({ selectedPeriod }) {
                 <td className="px-3 py-2 text-gray-600">22001 Rewards Liability (DR) / 60201 Rewards Expense (CR)</td>
                 <td className="px-3 py-2 text-right font-mono">{fmt(Math.abs(br.trueUpDollars))}</td>
                 <td className="px-3 py-2 text-center"><CheckCircle size={14} className="text-green-600 inline" /></td>
+              </tr>
+
+              {/* ── Ramp Canada (CAD) ─────────────────────────────────────── */}
+              <tr className="bg-indigo-50">
+                <td colSpan={6} className="px-3 py-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                  Ramp Canada — CAD
+                </td>
+              </tr>
+              <tr className="border-t border-gray-100">
+                <td className="px-3 py-2 text-gray-700">Net earnings <span className="text-xs text-gray-400">(Page 3)</span></td>
+                <td className="px-3 py-2 font-mono">{fmt(cadNet)}</td>
+                <td className="px-3 py-2 text-gray-400">→</td>
+                <td className="px-3 py-2 text-gray-600">60201 Rewards Expense (DR) / 22001 Rewards Liability (CR)</td>
+                <td className="px-3 py-2 text-right font-mono">{fmt(caEarnDebit)}</td>
+                <td className="px-3 py-2 text-center">{match(cadNet, caEarnDebit) ? <CheckCircle size={14} className="text-green-600 inline" /> : <span className="text-red-500 text-xs font-bold">✗</span>}</td>
               </tr>
             </tbody>
           </table>
