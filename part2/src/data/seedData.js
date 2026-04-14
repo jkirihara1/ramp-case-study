@@ -484,15 +484,9 @@ function buildProposedJEs(period) {
   const m = monthlyActivity[period];
   const br = breakageReserve.find((b) => b.period === period);
 
-  // ── USD earnings: net = gross USD - proportioned reversals ──
-  const usdGross = m.earnings.byCurrency.USD;
-  const cadGross = m.earnings.byCurrency.CAD;
-  const usdPct = usdGross.points / m.earnings.totalPoints;
-  const cadPct = cadGross.points / m.earnings.totalPoints;
-  const usdReversalDollars = Math.round(Math.abs(m.earnings.reversalDollars) * usdPct * 100) / 100;
-  const cadReversalDollars = Math.round(Math.abs(m.earnings.reversalDollars) * cadPct * 100) / 100;
-  const usdNetDollars = Math.round((usdGross.dollars - usdReversalDollars) * 100) / 100;
-  const cadNetDollars = Math.round((cadGross.dollars - cadReversalDollars) * 100) / 100;
+  // ── USD/CAD net earnings — byCurrency already contains net-of-reversal amounts ──
+  const usdNetDollars = m.earnings.byCurrency.USD.dollars;
+  const cadNetDollars = m.earnings.byCurrency.CAD.dollars;
 
   // ── Ramp Financial LLC (USD) ──────────────────────────────────────────────
   const usLines = [];
